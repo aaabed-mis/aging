@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Material Aging Dashboard</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-mark" src="assets/logo.png" alt="Logo" />
+      <div class="brand-text">
+        <h1>Material Aging Dashboard</h1>
+      </div>
+    </div>
+    <div class="meta">
+      <span class="pill" id="meta-time">Data refreshed: …</span>
+    </div>
+  </header>
+
+  <!-- Filter / slicer bar -->
+  <section class="filters">
+    <div class="filter-group">
+      <label>Region</label>
+      <div class="ms" data-key="regio" data-label="Region"></div>
+    </div>
+    <div class="filter-group">
+      <label>Plant</label>
+      <div class="ms" data-key="werks" data-label="Plant" data-search="true"></div>
+    </div>
+    <div class="filter-group">
+      <label>Sales Org (VKORG)</label>
+      <select id="f-vkorg" class="select"></select>
+    </div>
+    <div class="filter-group">
+      <label>Material Group</label>
+      <select id="f-extwg" class="select"></select>
+    </div>
+    <div class="filter-group">
+      <label>Aging Bucket</label>
+      <select id="f-bucket" class="select"></select>
+    </div>
+    <div class="filter-group grow">
+      <label>Search (Material / Desc / Batch)</label>
+      <input id="f-search" class="text" type="text" placeholder="e.g. 10000002, GELATINE, 2027.08…" />
+    </div>
+    <button id="reset" class="btn-reset">Reset</button>
+  </section>
+
+  <!-- KPI cards -->
+  <section class="kpis" id="kpis"></section>
+
+  <!-- Charts grid -->
+  <section class="grid">
+    <div class="card span-2">
+      <div class="card-head"><h2>Aging Exposure by Bucket</h2><span class="hint">Stock qty vs. valuation</span></div>
+      <div class="chart-wrap"><canvas id="chart-bucket"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Value Share by Bucket</h2><span class="hint">Expired highlighted</span></div>
+      <div class="chart-wrap"><canvas id="chart-bucket-donut"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Stock Value by Region</h2></div>
+      <div class="chart-wrap"><canvas id="chart-region"></canvas></div>
+    </div>
+    <div class="card span-2">
+      <div class="card-head"><h2>Top 15 Plants by Stock Value</h2></div>
+      <div class="chart-wrap"><canvas id="chart-plant"></canvas></div>
+    </div>
+    <div class="card span-3">
+      <div class="card-head"><h2>Stock Value by Material Group</h2></div>
+      <div class="chart-wrap tall"><canvas id="chart-mgrp"></canvas></div>
+    </div>
+    <div class="card span-3">
+      <div class="card-head"><h2>Top 10 Materials by Stock Value</h2><span class="hint">click a column to sort</span></div>
+      <div class="table-scroll"><table id="topmat-table"><thead></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- Detail table -->
+  <section class="card table-card">
+    <div class="card-head">
+      <h2>Batch Detail</h2>
+      <div class="table-actions">
+        <span id="table-count" class="hint"></span>
+        <button id="export-csv" class="btn-export">Export CSV</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table id="detail-table">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <button id="prev" class="btn-page">Prev</button>
+      <span id="page-info"></span>
+      <button id="next" class="btn-page">Next</button>
+      <select id="page-size" class="select small">
+        <option>25</option><option selected>50</option><option>100</option><option>250</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- Dead stock section -->
+  <section class="card table-card" id="dead-section">
+    <div class="card-head">
+      <h2>Dead Stock — No Sales in Last 6 Months</h2>
+      <div class="table-actions">
+        <span id="dead-count" class="hint"></span>
+        <button id="export-dead-csv" class="btn-export">Export CSV</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table id="dead-table">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script src="assets/chart.umd.min.js"></script>
+  <script src="data/data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

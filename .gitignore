@@ -1,0 +1,10 @@
+# Raw source / working databases (not needed to run the dashboard)
+*.duckdb
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+Thumbs.db
