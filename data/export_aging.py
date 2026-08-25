@@ -1,38 +1,78 @@
 import duckdb, json, datetime, os
+from collections import Counter
 SRC = r"C:\Users\c.crizaldo\OneDrive - Ahmad A. Abed Trading Co. Ltd\Documents\duckdb\material_aging.duckdb"
 SALES = r"C:\Users\c.crizaldo\OneDrive - Ahmad A. Abed Trading Co. Ltd\Documents\duckdb\avg_sales_6mo.duckdb"
 OUT = r"C:\Users\c.crizaldo\OneDrive - Ahmad A. Abed Trading Co. Ltd\Documents\Dashboards\MaterialAgingDashboard\data\material_aging.json"
-
-con = duckdb.connect(SRC, read_only=True)
 T = "sap_prd.material_aging"
 
-# Pull only the columns the dashboard needs. Coalesce blanks to null.
-cols = ["werks","lgort","name1","regio","vkorg","matnr","maktx","extwg","ewbez","matkl","wgbez",
-        "charg","clabs","ma_price","ntgew","gewei","aging_date","aging_bucket"]
-sql = f"""
-SELECT
-  NULLIF(werks,'')   AS werks,
-  NULLIF(lgort,'')   AS lgort,
-  NULLIF(name1,'')   AS name1,
-  NULLIF(regio,'')   AS regio,
-  NULLIF(vkorg,'')   AS vkorg,
-  NULLIF(matnr,'')   AS matnr,
-  NULLIF(maktx,'')   AS maktx,
-  NULLIF(extwg,'')   AS extwg,
-  NULLIF(ewbez,'')   AS ewbez,
-  NULLIF(matkl,'')   AS matkl,
-  NULLIF(wgbez,'')   AS wgbez,
-  NULLIF(charg,'')   AS charg,
-  clabs,
-  ma_price,
-  ntgew,
-  NULLIF(gewei,'')   AS gewei,
-  NULLIF(aging_date,'') AS aging_date,
-  NULLIF(aging_bucket,'') AS aging_bucket
-FROM {T}
-"""
-rows = con.execute(sql).fetchall()
+# NOTE: the source schema of material_aging.duckdb has changed repeatedly between
+# loads (columns added/renamed/removed). To stay robust we SELECT * and adapt in
+# Python, so "rerun export" keeps working regardless of the current variant.
+con = duckdb.connect(SRC, read_only=True)
+rows = con.execute(f"SELECT * FROM {T}").fetchall()
 names = [d[0] for d in con.description]
+present = set(names)
+print("Source columns:", names)
+
+# Map possible column-name variants to canonical names.
+def pick(*candidates):
+    for c in candidates:
+        if c in present:
+            return c
+    return None
+
+C_WERKS  = pick("werks")
+C_NAME1  = pick("name1", "name11")
+C_REGIO  = pick("regio")
+C_VKORG  = pick("vkorg")
+C_MATNR  = pick("matnr")
+C_MAKTX  = pick("maktx")
+C_MATKL  = pick("matkl")
+C_WGBEZ  = pick("wgbez")
+C_EXTWG  = pick("extwg")
+C_EWBEZ  = pick("ewbez")
+C_MFRNR  = pick("mfrnr")
+C_VENDOR= pick("vendor_name")
+C_CHARG  = pick("charg")
+C_VFDAT  = pick("vfdat")
+C_HSDAT  = pick("hsdat")
+C_CLABS  = pick("clabs")
+C_NTGEW  = pick("ntgew")
+C_GEWEI  = pick("gewei")
+C_UMREZ  = pick("umrez")
+C_MAPRICE= pick("ma_price")
+
+# ---- recompute aging_date / aging_bucket (mirrors the original build logic) ----
+import datetime as _dt
+TODAY = _dt.date.today()
+def _parsed_date(s):
+    if not s: return None
+    s = str(s).strip()
+    if len(s) == 10 and s[4] == '.' and s[7] == '.':
+        try: return _dt.datetime.strptime(s, "%Y.%m.%d").date()
+        except: pass
+    if len(s) == 8 and s.isdigit():
+        try: return _dt.datetime.strptime(s, "%Y%m%d").date()
+        except: pass
+    return None
+
+def compute_aging(vkorg, charg, vfdat):
+    d = None
+    v = (vkorg or '').strip()
+    if v in ('1000', '', ' '):
+        d = _parsed_date(charg)
+    elif v == '6000':
+        d = _parsed_date(vfdat)
+    if d is None:
+        return None, '>120 Days'
+    delta = (d - TODAY).days
+    if delta < 0:       b = 'Expired'
+    elif delta <= 30:  b = '0-30'
+    elif delta <= 60:  b = '31-60'
+    elif delta <= 90:  b = '61-90'
+    elif delta <= 120: b = '91-120'
+    else:              b = '>120 Days'
+    return d.strftime("%Y%m%d"), b
 
 # Load per-material avg sales (built from ZTSD_DETAIL over last 6 months)
 con_sales = duckdb.connect(SALES, read_only=True)
@@ -48,10 +88,12 @@ def clean(v):
         if v != v:  # NaN
             return None
         return round(v, 6)
+    if isinstance(v, str):
+        v = v.strip()
+        return None if v == '' else v
     return v
 
 # Last sales date per material, from SAP billing fact (fact_ztsd_detail).
-# material is 18-digit zero-padded, matching our matnr directly. Use MAX(inv_date).
 FACT = r"C:\Users\c.crizaldo\OneDrive - Ahmad A. Abed Trading Co. Ltd\Documents\duckdb\fact_ztsd_detail.duckdb"
 last_sales = {}
 try:
@@ -83,16 +125,25 @@ except Exception as e:
     print("WARN: forecast join skipped:", e)
     forecast = {}
 
+def get(rec, col):
+    return rec.get(col) if col else None
+
 data = []
 for r in rows:
     rec = {names[i]: clean(r[i]) for i in range(len(names))}
-    rec["value"] = round((rec["clabs"] or 0) * (rec["ma_price"] or 0), 4)
-    s = sales.get(rec["matnr"])
+    clabs = rec.get(C_CLABS) or 0
+    ma_price = rec.get(C_MAPRICE) or 0
+    rec["value"] = round(clabs * ma_price, 4)
+    aging_date, aging_bucket = compute_aging(get(rec, C_VKORG), get(rec, C_CHARG), get(rec, C_VFDAT))
+    rec["aging_date"] = aging_date
+    rec["aging_bucket"] = aging_bucket
+    rec["lgort"] = None  # not present in current source variants; kept for schema compatibility
+    s = sales.get(rec.get(C_MATNR))
     rec["avg_monthly_active"] = round(s["avg_monthly_active"], 4) if (s and s["avg_monthly_active"] is not None) else None
     rec["total_qty_6mo"] = round(s["total_qty_6mo"], 4) if (s and s["total_qty_6mo"] is not None) else None
-    ls = last_sales.get(str(rec["matnr"]))
+    ls = last_sales.get(str(rec.get(C_MATNR)))
     rec["last_sales"] = ls
-    fc = forecast.get(str(rec["matnr"]))
+    fc = forecast.get(str(rec.get(C_MATNR)))
     rec["forecast_value"] = round(fc["value"], 4) if (fc and fc["value"] is not None) else None
     rec["forecast_qty"] = round(fc["qty"], 4) if (fc and fc["qty"] is not None) else None
     data.append(rec)
@@ -100,28 +151,27 @@ con.close()
 
 meta = {
     "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    "source": "material_aging.duckdb :: sap_prd.material_aging",
+    "source": f"material_aging.duckdb :: {T}",
     "grain": "WERKS + MATNR + CHARG (batches with CLABS > 0)",
     "row_count": len(data),
+    "source_columns": names,
     "aging_buckets_order": ["Expired","0-30","31-60","61-90","91-120",">120 Days"],
+    "note": "aging_date/aging_bucket recomputed in export from charg (VKORG 1000) / vfdat (VKORG 6000); lgort absent in current source. SELECT * keeps export resilient to schema changes.",
 }
 with open(OUT, "w", encoding="utf-8") as f:
     json.dump({"meta": meta, "records": data}, f, ensure_ascii=False)
 
-# Inline variant so the dashboard opens via file:// (browsers block fetch on file://)
 OUT_JS = r"C:\Users\c.crizaldo\OneDrive - Ahmad A. Abed Trading Co. Ltd\Documents\Dashboards\MaterialAgingDashboard\data\data.js"
 with open(OUT_JS, "w", encoding="utf-8") as f:
     f.write("window.__AGING__ = ")
     json.dump({"meta": meta, "records": data}, f, ensure_ascii=False)
     f.write(";")
 
-# sanity
 print("Rows written:", len(data))
-print("Sample value rec:", data[0])
-from collections import Counter
+print("Sample value rec:", {k: data[0].get(k) for k in [C_WERKS,C_MATNR,C_MAKTX,C_MATKL,'value','aging_bucket','last_sales','forecast_qty'] if k})
 c = Counter(r["aging_bucket"] for r in data)
 print("Bucket row counts:", dict(c))
 tv = sum(r["value"] for r in data)
-tq = sum(r["clabs"] or 0 for r in data)
+tq = sum(r.get(C_CLABS) or 0 for r in data)
 print(f"Total stock value: {tv:,.2f}  | Total qty: {tq:,.2f}")
-print("File size bytes:", __import__("os").path.getsize(OUT))
+print("File size bytes:", os.path.getsize(OUT))

@@ -476,6 +476,21 @@ function initUI(){
   document.getElementById('f-search').oninput=e=>{state.search=e.target.value;state.page=1;refresh();};
   const topnSel=document.getElementById('f-topn');
   if(topnSel) topnSel.onchange=e=>{topMatState.limit=+e.target.value; renderTopMat(applyFilters());};
+  document.getElementById('export-top-csv').onclick=()=>{
+    const head=['MATNR','MAKTX','EXPIRED','0-30','31-60','61-90','91-120','TOTAL_VALUE','TOTAL_QTY','FORECAST_QTY','AVG_MONTHLY_SALES','AVG_DAILY_SALES','COVERAGE_DAYS'];
+    const cols=['matnr','maktx','b_Expired','b_0-30','b_31-60','b_61-90','b_91-120','value','qty','forecastQty','avgMonthly','avgDaily','coverage'];
+    const data=[...topMatState.data].map(r=>{
+      const o={...r};
+      o['b_Expired']=r['b_Expired']||0;
+      o['b_0-30']=r['b_0-30']||0;
+      o['b_31-60']=r['b_31-60']||0;
+      o['b_61-90']=r['b_61-90']||0;
+      o['b_91-120']=r['b_91-120']||0;
+      o['coverage']=r.coverage==null?'':r.coverage;
+      return o;
+    });
+    csvFrom(data, head, cols, 'top_materials_by_stock_value.csv');
+  };
 
   // multi-selects (region, plant)
   const regioRoot=document.querySelector('.ms[data-key="regio"]');
