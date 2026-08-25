@@ -7,7 +7,7 @@ con = duckdb.connect(SRC, read_only=True)
 T = "sap_prd.material_aging"
 
 # Pull only the columns the dashboard needs. Coalesce blanks to null.
-cols = ["werks","lgort","name1","regio","vkorg","matnr","maktx","extwg","ewbez",
+cols = ["werks","lgort","name1","regio","vkorg","matnr","maktx","extwg","ewbez","matkl","wgbez",
         "charg","clabs","ma_price","ntgew","gewei","aging_date","aging_bucket"]
 sql = f"""
 SELECT
@@ -20,6 +20,8 @@ SELECT
   NULLIF(maktx,'')   AS maktx,
   NULLIF(extwg,'')   AS extwg,
   NULLIF(ewbez,'')   AS ewbez,
+  NULLIF(matkl,'')   AS matkl,
+  NULLIF(wgbez,'')   AS wgbez,
   NULLIF(charg,'')   AS charg,
   clabs,
   ma_price,
@@ -64,6 +66,23 @@ except Exception as e:
     print("WARN: last_sales join skipped:", e)
     last_sales = {}
 
+# Forecast per material, from fact_forecast (sum of zbvalue / zbqty across months/plants).
+FC = r"C:\Users\c.crizaldo\OneDrive - Ahmad A. Abed Trading Co. Ltd\Documents\duckdb\fact_forecast.duckdb"
+forecast = {}
+try:
+    with duckdb.connect(FC, read_only=True) as con_fc:
+        for mat, val, qty in con_fc.execute(
+            'SELECT material, SUM(zbvalue), SUM(zbqty) FROM sap_prd.fact_forecast GROUP BY 1'
+        ).fetchall():
+            if mat:
+                forecast[str(mat)] = {
+                    "value": float(val) if val is not None else None,
+                    "qty": float(qty) if qty is not None else None,
+                }
+except Exception as e:
+    print("WARN: forecast join skipped:", e)
+    forecast = {}
+
 data = []
 for r in rows:
     rec = {names[i]: clean(r[i]) for i in range(len(names))}
@@ -73,6 +92,9 @@ for r in rows:
     rec["total_qty_6mo"] = round(s["total_qty_6mo"], 4) if (s and s["total_qty_6mo"] is not None) else None
     ls = last_sales.get(str(rec["matnr"]))
     rec["last_sales"] = ls
+    fc = forecast.get(str(rec["matnr"]))
+    rec["forecast_value"] = round(fc["value"], 4) if (fc and fc["value"] is not None) else None
+    rec["forecast_qty"] = round(fc["qty"], 4) if (fc and fc["qty"] is not None) else None
     data.append(rec)
 con.close()
 

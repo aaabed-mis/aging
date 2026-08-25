@@ -10,7 +10,7 @@ const FONT = "'Segoe UI', Roboto, Arial, sans-serif";
 let DATA = [];
 let META = {};
 const state = {
-  regio: new Set(), werks: new Set(), vkorg: "", extwg: "", bucket: "", search: "",
+  regio: new Set(), werks: new Set(), vkorg: "", extwg: "", matkl: "", bucket: "", search: "",
   sortKey: "value", sortDir: -1, page: 1, pageSize: 50
 };
 const charts = {};
@@ -28,6 +28,7 @@ function applyFilters(){
     if(state.werks.size && !state.werks.has(r.werks)) return false;
     if(state.vkorg && r.vkorg!==state.vkorg) return false;
     if(state.extwg && r.extwg!==state.extwg) return false;
+    if(state.matkl && r.matkl!==state.matkl) return false;
     if(state.bucket && r.aging_bucket!==state.bucket) return false;
     if(q){
       const hay = (r.matnr+' '+(r.maktx||'')+' '+(r.charg||'')).toLowerCase();
@@ -206,7 +207,7 @@ function renderTopMat(rows){
   const m={};
   for(const r of rows){
     const k=r.matnr; const o=m[k]||(m[k]={matnr:r.matnr, maktx:r.maktx, ewbez:r.ewbez, qty:0, value:0,
-      avgMonthly:r.avg_monthly_active, buckets:{}});
+      avgMonthly:r.avg_monthly_active, forecast:r.forecast_value, forecastQty:r.forecast_qty, buckets:{}});
     o.qty+=(r.clabs||0); o.value+=(r.value||0);
     if(o.avgMonthly===undefined) o.avgMonthly=r.avg_monthly_active;
     o.buckets[r.aging_bucket]=(o.buckets[r.aging_bucket]||0)+(r.value||0);
@@ -216,20 +217,21 @@ function renderTopMat(rows){
     const coverage=avgDaily>0?o.qty/avgDaily:null;
     const bk={}; BUCKETS.forEach(b=>bk['b_'+b]=(o.buckets[b]||0));
     return {matnr:o.matnr, maktx:o.maktx, ewbez:o.ewbez, qty:o.qty, value:o.value,
-      avgMonthly:o.avgMonthly||0, avgDaily, coverage, ...bk};
-  }).sort((x,y)=>y.value-x.value).slice(0,10);
+      avgMonthly:o.avgMonthly||0, avgDaily, coverage, forecast:o.forecast||0, forecastQty:o.forecastQty||0, ...bk};
+  }).sort((x,y)=>y.value-x.value).slice(0, topMatState.limit);
   topMatState.data=list; topMatState.sortKey='value'; topMatState.sortDir=-1;
   drawTopMat();
 }
 
-const topMatState={data:[], sortKey:'value', sortDir:-1};
+const topMatState={data:[], sortKey:'value', sortDir:-1, limit:10};
 function drawTopMat(){
   const cols=[
     {k:'matnr',t:'Material',cls:''},
     {k:'maktx',t:'Description',cls:''},
-    {k:'ewbez',t:'Mat.Grp',cls:''},
     ...BUCKETS.map(b=>({k:'b_'+b,t:b,cls:'num'})),
+    {k:'value',t:'Total Value',cls:'num'},
     {k:'qty',t:'Total Qty',cls:'num'},
+    {k:'forecastQty',t:'Forecast Qty',cls:'num'},
     {k:'avgMonthly',t:'Avg Monthly Sales',cls:'num'},
     {k:'avgDaily',t:'Avg Daily Sales',cls:'num'},
     {k:'coverage',t:'Coverage Days',cls:'num'},
@@ -259,9 +261,10 @@ function drawTopMat(){
     return `<tr>
       <td>${esc(r.matnr)}</td>
       <td>${esc(r.maktx)}</td>
-      <td>${esc(r.ewbez)}</td>
       ${bucketCells}
+      <td class="num">${fmtMoney(r.value)}</td>
       <td class="num">${fmtNum(r.qty,0)}</td>
+      <td class="num">${r.forecastQty?fmtNum(r.forecastQty,0):'—'}</td>
       <td class="num">${avm}</td>
       <td class="num">${avd}</td>
       <td class="num">${cov}</td>
@@ -454,16 +457,25 @@ function initUI(){
   const extwgDesc=new Map();
   DATA.forEach(r=>{ if(r.extwg && !extwgDesc.has(r.extwg) && r.ewbez) extwgDesc.set(r.extwg,r.ewbez); });
   const extwgs=[...new Set(DATA.map(r=>r.extwg).filter(Boolean))].sort();
+  const matklDesc=new Map();
+  DATA.forEach(r=>{ if(r.matkl && !matklDesc.has(r.matkl) && r.wgbez) matklDesc.set(r.matkl,r.wgbez); });
+  const matkls=[...new Set(DATA.map(r=>r.matkl).filter(Boolean))].sort();
   const buckets=BUCKETS.filter(b=>DATA.some(r=>r.aging_bucket===b));
   buildSelect('f-vkorg',vkorgs,'All sales orgs');
   const extwgSel=document.getElementById('f-extwg');
-  extwgSel.innerHTML='<option value="">All material groups</option>'+
+  extwgSel.innerHTML='<option value="">All ext material groups</option>'+
     extwgs.map(v=>`<option value="${esc(v)}">${esc(v)}${extwgDesc.get(v)?' – '+esc(extwgDesc.get(v)):''}</option>`).join('');
+  const matklSel=document.getElementById('f-matkl');
+  matklSel.innerHTML='<option value="">All material groups</option>'+
+    matkls.map(v=>`<option value="${esc(v)}">${esc(v)}${matklDesc.get(v)?' – '+esc(matklDesc.get(v)):''}</option>`).join('');
   buildSelect('f-bucket',buckets,'All buckets');
   document.getElementById('f-vkorg').onchange=e=>{state.vkorg=e.target.value;refresh();};
   extwgSel.onchange=e=>{state.extwg=e.target.value;refresh();};
+  matklSel.onchange=e=>{state.matkl=e.target.value;refresh();};
   document.getElementById('f-bucket').onchange=e=>{state.bucket=e.target.value;refresh();};
   document.getElementById('f-search').oninput=e=>{state.search=e.target.value;state.page=1;refresh();};
+  const topnSel=document.getElementById('f-topn');
+  if(topnSel) topnSel.onchange=e=>{topMatState.limit=+e.target.value; renderTopMat(applyFilters());};
 
   // multi-selects (region, plant)
   const regioRoot=document.querySelector('.ms[data-key="regio"]');
@@ -499,9 +511,9 @@ function initUI(){
     csvFrom(deadData, head, cols, 'dead_stock_no_sales_6mo.csv');
   };
   document.getElementById('reset').onclick=()=>{
-    state.regio.clear();state.werks.clear();state.vkorg='';state.extwg='';state.bucket='';state.search='';state.page=1;
+    state.regio.clear();state.werks.clear();state.vkorg='';state.extwg='';state.matkl='';state.bucket='';state.search='';state.page=1;
     document.querySelectorAll('.ms').forEach(r=>{r.querySelectorAll('input').forEach(c=>c.checked=false);const c=r.querySelector('.cnt');if(c)c.textContent='All';r.classList.remove('open');});
-    ['f-vkorg','f-extwg','f-bucket'].forEach(id=>document.getElementById(id).value='');
+    ['f-vkorg','f-extwg','f-matkl','f-bucket'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('f-search').value='';
     refresh();
   };

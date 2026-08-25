@@ -35,8 +35,12 @@
       <select id="f-vkorg" class="select"></select>
     </div>
     <div class="filter-group">
-      <label>Material Group</label>
+      <label>Ext Material Group</label>
       <select id="f-extwg" class="select"></select>
+    </div>
+    <div class="filter-group">
+      <label>Material Group</label>
+      <select id="f-matkl" class="select"></select>
     </div>
     <div class="filter-group">
       <label>Aging Bucket</label>
@@ -75,7 +79,16 @@
       <div class="chart-wrap tall"><canvas id="chart-mgrp"></canvas></div>
     </div>
     <div class="card span-3">
-      <div class="card-head"><h2>Top 10 Materials by Stock Value</h2><span class="hint">click a column to sort</span></div>
+      <div class="card-head"><h2>Top Materials by Stock Value</h2>
+        <span class="hint">click a column to sort</span>
+        <select id="f-topn" class="select small" title="Number of rows">
+          <option value="10">Top 10</option>
+          <option value="20">Top 20</option>
+          <option value="30">Top 30</option>
+          <option value="40">Top 40</option>
+          <option value="50">Top 50</option>
+        </select>
+      </div>
       <div class="table-scroll"><table id="topmat-table"><thead></thead><tbody></tbody></table></div>
     </div>
   </section>
