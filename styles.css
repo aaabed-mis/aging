@@ -93,8 +93,9 @@ code{background:var(--panel-2);padding:1px 6px;border-radius:6px;font-size:12px;
   padding:16px 18px;box-shadow:var(--shadow);min-width:0}
 .card.span-2{grid-column:span 2}
 .card.span-3{grid-column:span 3}
-.card-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
 .card-head h2{margin:0;font-size:15px;font-weight:700}
+.head-right{display:flex;align-items:center;gap:8px}
 .hint{color:var(--muted);font-size:12px}
 .chart-wrap{position:relative;height:260px}
 .chart-wrap.tall{height:300px}
@@ -102,7 +103,7 @@ code{background:var(--panel-2);padding:1px 6px;border-radius:6px;font-size:12px;
 /* Table */
 .table-card{margin:6px 26px 0}
 .table-actions{display:flex;align-items:center;gap:12px}
-.btn-export{background:var(--accent);border:none;color:#fff;font-weight:600;padding:7px 14px;border-radius:9px;cursor:pointer;font-size:12.5px}
+.btn-export{background:var(--accent);border:none;color:#fff;font-weight:600;padding:0 14px;height:38px;border-radius:9px;cursor:pointer;font-size:12.5px;display:inline-flex;align-items:center}
 .btn-export:hover{filter:brightness(1.08)}
 .table-scroll{overflow:auto;max-height:520px;border:1px solid var(--line);border-radius:10px}
 table{border-collapse:collapse;width:100%;font-size:12.5px}
