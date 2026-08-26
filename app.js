@@ -41,14 +41,17 @@ function applyFilters(){
 /* ---------- aggregation ---------- */
 function aggregate(rows){
   let totalQty=0,totalVal=0,expiredQty=0,expiredVal=0,batches=rows.length;
-  let deadStockVal=0;
+  let deadStockVal=0, sl01ExpiredVal=0;
   const seenMat=new Map(); // matnr -> avg_monthly_active (distinct, avoids batch double-count)
   const byBucket={}, byRegion={}, byPlant={}, byMgrp={}, byRegionBucket={}, byPlantBucket={}, byMgrpBucket={}, byMatnr={}, byMatnrBucket={};
   BUCKETS.forEach(b=>byBucket[b]={qty:0,val:0,batches:0});
   for(const r of rows){
     const q=r.clabs||0, v=r.value||0;
     totalQty+=q; totalVal+=v;
-    if(r.aging_bucket==='Expired'){expiredQty+=q;expiredVal+=v;}
+    if(r.aging_bucket==='Expired'){
+      expiredQty+=q; expiredVal+=v;
+      if(r.lgort==='SL01') sl01ExpiredVal+=v;
+    }
     const b=r.aging_bucket; if(byBucket[b]){byBucket[b].qty+=q;byBucket[b].val+=v;byBucket[b].batches++;}
     const rg=r.regio||'(none)'; byRegion[rg]=(byRegion[rg]||0)+v;
     if(!byRegionBucket[rg]){byRegionBucket[rg]={};BUCKETS.forEach(x=>byRegionBucket[rg][x]=0);}
@@ -73,7 +76,7 @@ function aggregate(rows){
   let totalAvgDaily=0;
   for(const [,am] of seenMat){ if(am) totalAvgDaily+=am/30; }
   const coverageDays=totalAvgDaily>0?totalQty/totalAvgDaily:null;
-  return {totalQty,totalVal,expiredQty,expiredVal,batches,deadStockVal,coverageDays,byBucket,byRegion,byPlant,byMgrp,byRegionBucket,byPlantBucket,byMgrpBucket,byMatnr,byMatnrBucket};
+  return {totalQty,totalVal,expiredQty,expiredVal,batches,deadStockVal,sl01ExpiredVal,coverageDays,byBucket,byRegion,byPlant,byMgrp,byRegionBucket,byPlantBucket,byMgrpBucket,byMatnr,byMatnrBucket};
 }
 
 /* ---------- KPIs ---------- */
@@ -84,7 +87,7 @@ function renderKPIs(a){
   const cards=[
     {cls:'k-expired',label:'Expired Value',value:fmtMoney(a.expiredVal),sub:fmtNum(expiredPct,1)+'% of stock · '+fmtInt(a.byBucket['Expired'].batches)+' batches'},
     {cls:'k-near',label:'Expiring (0–30d)',value:fmtMoney(b030.val),sub:fmtNum(b030.qty,0)+' units · '+fmtInt(b030.batches)+' batches'},
-    {cls:'',label:'Expired Units',value:fmtNum(a.expiredQty,0),sub:'qty on expired batches'},
+    {cls:'',label:'Expired Value (SL01)',value:fmtMoney(a.sl01ExpiredVal),sub:'expired stock in SL01'},
     {cls:'k-active',label:'Dead Stock (no sales 6mo)',value:fmtMoney(a.deadStockVal),sub:fmtNum(deadPct,1)+'% of stock value'},
   ];
   document.getElementById('kpis').innerHTML=cards.map(c=>`
@@ -277,6 +280,7 @@ const COLS=[
   {k:'matnr',t:'Material',cls:''},
   {k:'maktx',t:'Description',cls:''},
   {k:'werks',t:'Plant',cls:''},
+  {k:'lgort',t:'SLoc',cls:''},
   {k:'charg',t:'Batch',cls:''},
   {k:'extwg',t:'Mat.Grp',cls:''},
   {k:'ewbez',t:'Mat.Grp Description',cls:''},
@@ -322,8 +326,8 @@ function csvFrom(rows, head, cols, filename){
 }
 
 function exportCSV(rows){
-  const head=['MATNR','MAKTX','WERKS','NAME1','REGIO','CHARG','EXTWG','EWBEZ','CLABS','MA_PRICE','VALUE','AGING_BUCKET'];
-  const cols=['matnr','maktx','werks','name1','regio','charg','extwg','ewbez','clabs','ma_price','value','aging_bucket'];
+  const head=['MATNR','MAKTX','WERKS','SLOC','NAME1','REGIO','CHARG','EXTWG','EWBEZ','CLABS','MA_PRICE','VALUE','AGING_BUCKET'];
+  const cols=['matnr','maktx','werks','lgort','name1','regio','charg','extwg','ewbez','clabs','ma_price','value','aging_bucket'];
   csvFrom(rows, head, cols, 'material_aging_filtered.csv');
 }
 

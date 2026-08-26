@@ -41,6 +41,7 @@ C_NTGEW  = pick("ntgew")
 C_GEWEI  = pick("gewei")
 C_UMREZ  = pick("umrez")
 C_MAPRICE= pick("ma_price")
+C_LGORT  = pick("lgort")
 
 # ---- recompute aging_date / aging_bucket (mirrors the original build logic) ----
 import datetime as _dt
@@ -137,7 +138,7 @@ for r in rows:
     aging_date, aging_bucket = compute_aging(get(rec, C_VKORG), get(rec, C_CHARG), get(rec, C_VFDAT))
     rec["aging_date"] = aging_date
     rec["aging_bucket"] = aging_bucket
-    rec["lgort"] = None  # not present in current source variants; kept for schema compatibility
+    rec["lgort"] = rec.get(C_LGORT) if C_LGORT else None  # carried when present in source, else null
     s = sales.get(rec.get(C_MATNR))
     rec["avg_monthly_active"] = round(s["avg_monthly_active"], 4) if (s and s["avg_monthly_active"] is not None) else None
     rec["total_qty_6mo"] = round(s["total_qty_6mo"], 4) if (s and s["total_qty_6mo"] is not None) else None
