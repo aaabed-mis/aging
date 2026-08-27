@@ -187,8 +187,7 @@ VER = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 try:
     with open(IDX, "r", encoding="utf-8") as f:
         html = f.read()
-    # strip any existing ?v=... on our local assets, then append a fresh one
-    html = re.sub(r'(src="(assets/chart\.umd\.min\.js|data/data\.js|app\.js)")\?v=[^"]*', r'\1', html)
+    # stamp a fresh ?v= version on each asset tag (replaces any existing version)
     html = re.sub(r'(href="styles\.css")(\?v=[^"]*)?', r'\1?v=' + VER, html)
     html = re.sub(r'(src="assets/chart\.umd\.min\.js")(\?v=[^"]*)?', r'\1?v=' + VER, html)
     html = re.sub(r'(src="data/data\.js")(\?v=[^"]*)?', r'\1?v=' + VER, html)
