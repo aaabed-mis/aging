@@ -177,23 +177,3 @@ tq = sum(r.get(C_CLABS) or 0 for r in data)
 print(f"Total stock value: {tv:,.2f}  | Total qty: {tq:,.2f}")
 print("File size bytes:", os.path.getsize(OUT))
 
-# ---- cache-busting: stamp a version on asset tags in index.html ----
-# GitHub Pages sends Cache-Control headers, so browsers cache index.html / app.js /
-# data.js aggressively. A changing ?v= query forces a fresh fetch after each deploy
-# without requiring users to hard-refresh.
-import re
-IDX = r"C:\Users\c.crizaldo\OneDrive - Ahmad A. Abed Trading Co. Ltd\Documents\Dashboards\MaterialAgingDashboard\index.html"
-VER = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-try:
-    with open(IDX, "r", encoding="utf-8") as f:
-        html = f.read()
-    # stamp a fresh ?v= version on each asset tag (replaces any existing version)
-    html = re.sub(r'(href="styles\.css")(\?v=[^"]*)?', r'\1?v=' + VER, html)
-    html = re.sub(r'(src="assets/chart\.umd\.min\.js")(\?v=[^"]*)?', r'\1?v=' + VER, html)
-    html = re.sub(r'(src="data/data\.js")(\?v=[^"]*)?', r'\1?v=' + VER, html)
-    html = re.sub(r'(src="app\.js")(\?v=[^"]*)?', r'\1?v=' + VER, html)
-    with open(IDX, "w", encoding="utf-8") as f:
-        f.write(html)
-    print("Cache-bust version applied to index.html:", VER)
-except Exception as e:
-    print("WARN: index.html cache-bust skipped:", e)
