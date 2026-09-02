@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Material Aging Dashboard</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
-  <link rel="stylesheet" href="styles.css?v=20260830081939" />
+  <link rel="stylesheet" href="styles.css?v=20260902" />
 </head>
 <body>
   <header class="topbar">
@@ -63,8 +63,8 @@
       <div class="chart-wrap"><canvas id="chart-bucket"></canvas></div>
     </div>
     <div class="card">
-      <div class="card-head"><h2>Value Share by Bucket</h2><span class="hint">Expired highlighted</span></div>
-      <div class="chart-wrap"><canvas id="chart-bucket-donut"></canvas></div>
+      <div class="card-head"><h2>Bucket Breakdown</h2><span class="hint">qty and value by aging bucket</span></div>
+      <div class="table-scroll"><table id="bucket-table"><thead></thead><tbody></tbody></table></div>
     </div>
     <div class="card">
       <div class="card-head"><h2>Stock Value by Region</h2></div>
@@ -124,7 +124,7 @@
   <!-- Dead stock section -->
   <section class="card table-card" id="dead-section">
     <div class="card-head">
-      <h2>Dead Stock — No Sales in Last 6 Months</h2>
+      <h2>Slow Moving (no sales 6mo)</h2>
       <div class="table-actions">
         <span id="dead-count" class="hint"></span>
         <button id="export-dead-csv" class="btn-export">Export CSV</button>
@@ -138,8 +138,26 @@
     </div>
   </section>
 
-  <script src="assets/chart.umd.min.js?v=20260830081939"></script>
-  <script src="data/data.js?v=20260830081939"></script>
-  <script src="app.js?v=20260830081939"></script>
+  <!-- Goods disposal (fact_gdrn) section -->
+  <section class="card table-card">
+    <div class="card-head">
+      <h2>Goods Disposal (fact_gdrn)</h2>
+      <div class="table-actions">
+        <span id="gdrn-count" class="hint"></span>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table id="gdrn-table">
+        <thead><tr>
+          <th>Date</th><th>Plant</th><th>Material</th><th>Description</th><th>SLoc</th><th>Batch</th><th class="num">Qty</th><th>UoM</th><th class="num">Value</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script src="assets/chart.umd.min.js"></script>
+  <script src="data/data.js?v=20260902"></script>
+  <script src="app.js?v=20260902"></script>
 </body>
 </html>

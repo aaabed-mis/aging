@@ -126,6 +126,30 @@ except Exception as e:
     print("WARN: forecast join skipped:", e)
     forecast = {}
 
+# Goods disposal fact (fact_gdrn): YTD DMBTR total + detail rows for the dashboard table.
+GDRN = r"C:\Users\c.crizaldo\OneDrive - Ahmad A. Abed Trading Co. Ltd\Documents\duckdb\fact_gdrn.duckdb"
+gdrn = {"total_ytd": None, "records": []}
+try:
+    with duckdb.connect(GDRN, read_only=True) as con_g:
+        cols_g = [d[0] for d in con_g.execute("SELECT * FROM sap_prd.fact_gdrn LIMIT 1").description]
+        gdrn_rows = con_g.execute(
+            "SELECT budat_mkpf, werks, mblnr, matnr, maktx, lgort, charg, menge, meins, dmbtr, usnam_mkpf "
+            "FROM sap_prd.fact_gdrn ORDER BY budat_mkpf"
+        ).fetchall()
+        gdrn["total_ytd"] = round(float(con_g.execute(
+            "SELECT COALESCE(SUM(CAST(dmbtr AS DOUBLE)),0) FROM sap_prd.fact_gdrn WHERE YEAR(budat_mkpf)=YEAR(CURRENT_DATE)"
+        ).fetchone()[0]), 2)
+        for row in gdrn_rows:
+            gdrn["records"].append({
+                "date": row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0]),
+                "werks": row[1], "mblnr": row[2], "matnr": row[3], "maktx": row[4],
+                "lgort": row[5], "charg": row[6], "menge": row[7], "meins": row[8],
+                "dmbtr": round(float(row[9]), 2) if row[9] is not None else None,
+                "usnam": row[10],
+            })
+except Exception as e:
+    print("WARN: fact_gdrn join skipped:", e)
+
 def get(rec, col):
     return rec.get(col) if col else None
 
@@ -160,12 +184,12 @@ meta = {
     "note": "aging_date/aging_bucket recomputed in export from charg (VKORG 1000) / vfdat (VKORG 6000); lgort absent in current source. SELECT * keeps export resilient to schema changes.",
 }
 with open(OUT, "w", encoding="utf-8") as f:
-    json.dump({"meta": meta, "records": data}, f, ensure_ascii=False)
+    json.dump({"meta": meta, "records": data, "gdrn": gdrn}, f, ensure_ascii=False)
 
 OUT_JS = r"C:\Users\c.crizaldo\OneDrive - Ahmad A. Abed Trading Co. Ltd\Documents\Dashboards\MaterialAgingDashboard\data\data.js"
 with open(OUT_JS, "w", encoding="utf-8") as f:
     f.write("window.__AGING__ = ")
-    json.dump({"meta": meta, "records": data}, f, ensure_ascii=False)
+    json.dump({"meta": meta, "records": data, "gdrn": gdrn}, f, ensure_ascii=False)
     f.write(";")
 
 print("Rows written:", len(data))

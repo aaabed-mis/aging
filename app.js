@@ -87,8 +87,8 @@ function renderKPIs(a){
   const cards=[
     {cls:'k-expired',label:'Expired Value',value:fmtMoney(a.expiredVal),sub:fmtNum(expiredPct,1)+'% of stock · '+fmtInt(a.byBucket['Expired'].batches)+' batches'},
     {cls:'k-near',label:'Expiring (0–30d)',value:fmtMoney(b030.val),sub:fmtNum(b030.qty,0)+' units · '+fmtInt(b030.batches)+' batches'},
-    {cls:'',label:'Expired Value (SL01)',value:fmtMoney(a.sl01ExpiredVal),sub:'expired stock in SL01'},
-    {cls:'k-active',label:'Dead Stock (no sales 6mo)',value:fmtMoney(a.deadStockVal),sub:fmtNum(deadPct,1)+'% of stock value'},
+    {cls:'',label:'Goods Disposal YTD',value:fmtMoney(window.__AGING__?.gdrn?.total_ytd||0),sub:'fact_gdrn DMBTR · '+fmtInt((window.__AGING__?.gdrn?.records||[]).length)+' lines'},
+    {cls:'k-active',label:'Slow Moving (no sales 6mo)',value:fmtMoney(a.deadStockVal),sub:fmtNum(deadPct,1)+'% of stock value'},
   ];
   document.getElementById('kpis').innerHTML=cards.map(c=>`
     <div class="kpi ${c.cls}">
@@ -116,15 +116,13 @@ function renderBucketChart(a){
     scales:{y:{position:'left',title:{display:true,text:'Qty'},ticks:{callback:v=>fmtInt(v)}},
       y1:{position:'right',title:{display:true,text:'Value (M SAR)'},grid:{drawOnChartArea:false},ticks:{callback:v=>v}}}}});
 }
-function renderBucketDonut(a){
-  const labels=BUCKETS, val=labels.map(b=>a.byBucket[b].val);
-  const ctx=document.getElementById('chart-bucket-donut');
-  if(charts.donut)charts.donut.destroy();
-  charts.donut=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data:val,
-    backgroundColor:labels.map(b=>BUCKET_COLOR[b]),borderColor:'#1b2433',borderWidth:2}]},
-    options:{maintainAspectRatio:false,cutout:'62%',
-      plugins:{legend:{position:'right',labels:{usePointStyle:true,boxWidth:8,padding:10}},
-        tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtMoney(c.raw)}`}}}}});
+function renderBucketTable(a){
+  const labels=BUCKETS;
+  const rows=labels.map(b=>({bucket:b, qty:a.byBucket[b]?.qty||0, val:a.byBucket[b]?.val||0}));
+  const table=document.querySelector('#bucket-table');
+  if(!table) return;
+  table.innerHTML='<thead><tr><th>Bucket</th><th class="num">Qty</th><th class="num">Value</th></tr></thead>'+
+    '<tbody>'+(rows.map(r=>'<tr><td><span class="bucket-tag '+BUCKET_CLASS[r.bucket]+'">'+esc(r.bucket)+'</span></td><td class="num">'+fmtNum(r.qty,0)+'</td><td class="num">'+fmtMoney(r.val)+'</td></tr>').join(''))+'</tbody>';
 }
 function bucketTooltip(aggData, bucketKey, tipId){
   let tip=document.getElementById(tipId);
@@ -393,14 +391,37 @@ function drawDead(){
   document.getElementById('dead-count').textContent=fmtInt(deadData.length)+' materials · '+fmtMoney(deadData.reduce((s,r)=>s+r.value,0))+' tied up';
 }
 
+/* ---------- GDRN (goods disposal) table ---------- */
+function renderGdrnTable(){
+  const recs=(window.__AGING__&&window.__AGING__.gdrn&&window.__AGING__.gdrn.records)||[];
+  const tbody=document.querySelector('#gdrn-table tbody');
+  if(!tbody) return;
+  tbody.innerHTML=recs.map(r=>{
+    const matnr=String(r.matnr||'').replace(/^0+/,'')||'0';
+    return `<tr>
+      <td>${esc(r.date||'')}</td>
+      <td>${esc(r.werks||'')}</td>
+      <td>${esc(matnr)}</td>
+      <td>${esc(r.maktx||'')}</td>
+      <td>${esc(r.lgort||'')}</td>
+      <td>${esc(r.charg||'')}</td>
+      <td class="num">${fmtNum(r.menge,2)}</td>
+      <td>${esc(r.meins||'')}</td>
+      <td class="num">${fmtMoney(r.dmbtr)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('gdrn-count').textContent=fmtInt(recs.length)+' lines · '+fmtMoney(recs.reduce((s,r)=>s+(r.dmbtr||0),0))+' disposed YTD';
+}
+
 /* ---------- wire up ---------- */
 function refresh(){
   const rows=applyFilters();
   const a=aggregate(rows);
   renderKPIs(a);
-  renderBucketChart(a);renderBucketDonut(a);renderRegion(a);renderPlant(a);renderMgrp(a);renderTopMat(rows);
+  renderBucketChart(a);renderBucketTable(a);renderRegion(a);renderPlant(a);renderMgrp(a);renderTopMat(rows);
   renderTable(rows);
   renderDeadStock(rows);
+  renderGdrnTable();
 }
 
 function injectMSToggle(root,label){
