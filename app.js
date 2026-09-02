@@ -87,7 +87,7 @@ function renderKPIs(a){
   const cards=[
     {cls:'k-expired',label:'Expired Value',value:fmtMoney(a.expiredVal),sub:fmtNum(expiredPct,1)+'% of stock · '+fmtInt(a.byBucket['Expired'].batches)+' batches'},
     {cls:'k-near',label:'Expiring (0–30d)',value:fmtMoney(b030.val),sub:fmtNum(b030.qty,0)+' units · '+fmtInt(b030.batches)+' batches'},
-    {cls:'',label:'Goods Disposal YTD',value:fmtMoney(window.__AGING__?.gdrn?.total_ytd||0),sub:'fact_gdrn DMBTR · '+fmtInt((window.__AGING__?.gdrn?.records||[]).length)+' lines'},
+    {cls:'',label:'Goods Disposal YTD',value:fmtMoney(window.__AGING__?.gdrn?.total_ytd||0),sub:'Item Count · '+fmtInt((window.__AGING__?.gdrn?.records||[]).length)},
     {cls:'k-active',label:'Slow Moving (no sales 6mo)',value:fmtMoney(a.deadStockVal),sub:fmtNum(deadPct,1)+'% of stock value'},
   ];
   document.getElementById('kpis').innerHTML=cards.map(c=>`
@@ -549,6 +549,13 @@ function initUI(){
     const head=['MATNR','MAKTX','MAT_GRUP','TOTAL_QTY','STOCK_VALUE','AGING_BUCKET','LAST_SALES_DATE'];
     const cols=['matnr','maktx','ewbez','qty','value','bucket','lastSales'];
     csvFrom(deadData, head, cols, 'dead_stock_no_sales_6mo.csv');
+  };
+  const exportGdrn=document.getElementById('export-gdrn-csv');
+  if(exportGdrn) exportGdrn.onclick=()=>{
+    const recs=(window.__AGING__&&window.__AGING__.gdrn&&window.__AGING__.gdrn.records)||[];
+    const head=['DATE','PLANT','MBLNR','MATERIAL','DESCRIPTION','SLOC','BATCH','QTY','UOM','VALUE','USER'];
+    const cols=['date','werks','mblnr','matnr','maktx','lgort','charg','menge','meins','dmbtr','usnam'];
+    csvFrom(recs, head, cols, 'goods_disposal_ytd.csv');
   };
   document.getElementById('reset').onclick=()=>{
     state.regio.clear();state.werks.clear();state.vkorg='';state.extwg='';state.matkl='';state.bucket='';state.search='';state.page=1;
