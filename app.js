@@ -396,24 +396,50 @@ function drawDead(){
 }
 
 /* ---------- GDRN (goods disposal) table ---------- */
+const GDRN_COLS=[
+  {k:'date',t:'Date',cls:''},
+  {k:'werks',t:'Plant',cls:''},
+  {k:'matnr',t:'Material',cls:''},
+  {k:'maktx',t:'Description',cls:''},
+  {k:'lgort',t:'SLoc',cls:''},
+  {k:'charg',t:'Batch',cls:''},
+  {k:'menge',t:'Qty',cls:'num'},
+  {k:'meins',t:'UoM',cls:''},
+  {k:'dmbtr',t:'Value',cls:'num'},
+];
+let gdrnSort={key:'date',dir:-1};
 function renderGdrnTable(){
-  const recs=(window.__AGING__&&window.__AGING__.gdrn&&window.__AGING__.gdrn.records)||[];
+  const recs=((window.__AGING__&&window.__AGING__.gdrn&&window.__AGING__.gdrn.records)||[]).map(r=>({...r}));
+  for(const r of recs) r.matnr=String(r.matnr||'').replace(/^0+/,'')||'0';
+  const sorted=[...recs].sort((x,y)=>{
+    let a=x[gdrnSort.key],b=y[gdrnSort.key];
+    if(typeof a==='number'&&typeof b==='number')return (a-b)*gdrnSort.dir;
+    a=String(a==null?'':a);b=String(b==null?'':b);
+    return a<b?-1*gdrnSort.dir:a>b?1*gdrnSort.dir:0;
+  });
+  const thead=document.querySelector('#gdrn-table thead');
+  if(thead){
+    thead.innerHTML='<tr>'+GDRN_COLS.map(c=>`<th data-k="${c.k}" class="${c.cls}">${c.t}${gdrnSort.key===c.k?(gdrnSort.dir<0?' ▼':' ▲'):''}</th>`).join('')+'</tr>';
+    thead.onclick=e=>{
+      const th=e.target.closest('th'); if(!th) return; const k=th.dataset.k;
+      if(gdrnSort.key===k) gdrnSort.dir*=-1; else {gdrnSort.key=k; gdrnSort.dir=-1;}
+      renderGdrnTable();
+    };
+  }
   const tbody=document.querySelector('#gdrn-table tbody');
-  if(!tbody) return;
-  tbody.innerHTML=recs.map(r=>{
-    const matnr=String(r.matnr||'').replace(/^0+/,'')||'0';
-    return `<tr>
+  if(tbody){
+    tbody.innerHTML=sorted.map(r=>`<tr>
       <td>${esc(r.date||'')}</td>
       <td>${esc(r.werks||'')}</td>
-      <td>${esc(matnr)}</td>
+      <td>${esc(r.matnr)}</td>
       <td>${esc(r.maktx||'')}</td>
       <td>${esc(r.lgort||'')}</td>
       <td>${esc(r.charg||'')}</td>
       <td class="num">${fmtNum(r.menge,2)}</td>
       <td>${esc(r.meins||'')}</td>
       <td class="num">${fmtMoney(r.dmbtr)}</td>
-    </tr>`;
-  }).join('');
+    </tr>`).join('');
+  }
   document.getElementById('gdrn-count').textContent=fmtInt(recs.length)+' lines · '+fmtMoney(recs.reduce((s,r)=>s+(r.dmbtr||0),0))+' disposed YTD';
 }
 
