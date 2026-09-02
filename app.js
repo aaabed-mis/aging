@@ -106,9 +106,25 @@ function renderKPIs(a){
 }
 
 /* ---------- charts ---------- */
-Chart.defaults.color='#8a99af';
+// theme helpers: read a CSS variable and apply the active theme to Chart defaults
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+let CURRENT_THEME='dark';
+function applyTheme(t){
+  CURRENT_THEME=t;
+  document.documentElement.setAttribute('data-theme',t);
+  try{localStorage.setItem('ma-theme',t);}catch(e){}
+  const btn=document.getElementById('theme-toggle');
+  if(btn) btn.textContent = t==='light'?'☀':'☾';
+  // re-theme Chart.js defaults (muted text, faint grid) so charts match the palette
+  Chart.defaults.color = cssVar('--muted') || '#8a99af';
+  Chart.defaults.borderColor = t==='light' ? 'rgba(20,30,50,.12)' : 'rgba(42,54,71,.6)';
+}
+function initTheme(){
+  let t='dark';
+  try{ t = localStorage.getItem('ma-theme') || 'dark'; }catch(e){}
+  applyTheme(t==='light'?'light':'dark');
+}
 Chart.defaults.font.family=FONT;
-Chart.defaults.borderColor='rgba(42,54,71,.6)';
 
 function renderBucketChart(a){
   const labels=BUCKETS, qty=labels.map(b=>a.byBucket[b].qty), val=labels.map(b=>a.byBucket[b].val);
@@ -116,8 +132,8 @@ function renderBucketChart(a){
   if(charts.bucket)charts.bucket.destroy();
   charts.bucket=new Chart(ctx,{type:'bar',data:{labels,datasets:[
     {label:'Stock qty',data:qty,backgroundColor:labels.map(b=>BUCKET_COLOR[b]),borderRadius:6,yAxisID:'y',order:2},
-    {label:'Valuation (M)',data:val.map(v=>+(v/1e6).toFixed(3)),type:'line',borderColor:'#e7edf5',
-     backgroundColor:'#e7edf5',borderWidth:2.5,tension:.3,pointRadius:4,pointBorderColor:'#e7edf5',pointBackgroundColor:'#e7edf5',yAxisID:'y1',order:1}
+    {label:'Valuation (M)',data:val.map(v=>+(v/1e6).toFixed(3)),type:'line',borderColor:cssVar('--text')||'#e7edf5',
+     backgroundColor:cssVar('--text')||'#e7edf5',borderWidth:2.5,tension:.3,pointRadius:4,pointBorderColor:cssVar('--text')||'#e7edf5',pointBackgroundColor:cssVar('--text')||'#e7edf5',yAxisID:'y1',order:1}
   ]},options:{maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
     plugins:{legend:{labels:{usePointStyle:true}}},
     scales:{y:{position:'left',title:{display:true,text:'Qty'},ticks:{callback:v=>fmtInt(v)}},
@@ -625,10 +641,13 @@ function initUI(){
     document.getElementById('f-search').value='';
     refresh();
   };
+  const themeBtn=document.getElementById('theme-toggle');
+  if(themeBtn) themeBtn.onclick=()=>{ applyTheme(CURRENT_THEME==='light'?'dark':'light'); refresh(); };
 }
 
 /* ---------- boot ---------- */
 function boot(){
+  initTheme();
   const el=document.createElement('div');el.className='loading';
   el.innerHTML='<div><div class="spin"></div>Loading material aging data…</div>';document.body.appendChild(el);
   const done=json=>{
