@@ -133,7 +133,7 @@ try:
     with duckdb.connect(GDRN, read_only=True) as con_g:
         cols_g = [d[0] for d in con_g.execute("SELECT * FROM sap_prd.fact_gdrn LIMIT 1").description]
         gdrn_rows = con_g.execute(
-            "SELECT budat_mkpf, werks, mblnr, matnr, maktx, lgort, charg, menge, meins, dmbtr, usnam_mkpf "
+            "SELECT budat_mkpf, werks, mblnr, matnr, maktx, lgort, charg, menge, meins, dmbtr, usnam_mkpf, vkorg "
             "FROM sap_prd.fact_gdrn ORDER BY budat_mkpf"
         ).fetchall()
         gdrn["total_ytd"] = round(float(con_g.execute(
@@ -146,6 +146,7 @@ try:
                 "lgort": row[5], "charg": row[6], "menge": row[7], "meins": row[8],
                 "dmbtr": round(float(row[9]), 2) if row[9] is not None else None,
                 "usnam": row[10],
+                "vkorg": row[11],
             })
 except Exception as e:
     print("WARN: fact_gdrn join skipped:", e)

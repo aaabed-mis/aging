@@ -10,7 +10,7 @@ const FONT = "'Segoe UI', Roboto, Arial, sans-serif";
 let DATA = [];
 let META = {};
 const state = {
-  regio: new Set(), werks: new Set(), vkorg: "", extwg: "", matkl: "", bucket: "", search: "",
+  werks: new Set(), vkorg: "", extwg: "", matkl: "", bucket: "", search: "",
   sortKey: "value", sortDir: -1, page: 1, pageSize: 50
 };
 const charts = {};
@@ -24,7 +24,6 @@ const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&l
 function applyFilters(){
   const q = state.search.trim().toLowerCase();
   return DATA.filter(r=>{
-    if(state.regio.size && !state.regio.has(r.regio)) return false;
     if(state.werks.size && !state.werks.has(r.werks)) return false;
     if(state.vkorg && r.vkorg!==state.vkorg) return false;
     if(state.extwg && r.extwg!==state.extwg) return false;
@@ -91,7 +90,7 @@ function renderKPIs(a){
   const cards=[
     {cls:'k-expired',label:'Expired Value',value:fmtMoney(a.expiredVal),sub:fmtNum(expiredPct,1)+'% of stock · '+fmtInt(a.byBucket['Expired'].batches)+' batches'},
     {cls:'k-near',label:'NEAR EXPIRY',value:fmtMoney(nearVal),sub:fmtNum(nearQty,0)+' units · '+fmtInt(nearBatches)+' batches (0-120d)'},
-    {cls:'',label:'Goods Disposal YTD',value:fmtMoney(window.__AGING__?.gdrn?.total_ytd||0),sub:'Item Count · '+fmtInt((window.__AGING__?.gdrn?.records||[]).length)},
+    {cls:'',label:'Goods Disposal YTD',value:fmtMoney(gdrnFiltered().reduce((s,r)=>s+(r.dmbtr||0),0)),sub:'Item Count · '+fmtInt(gdrnFiltered().length)},
     {cls:'k-active',label:'Slow Moving (no sales 6mo)',value:fmtMoney(a.deadStockVal),sub:fmtNum(deadPct,1)+'% of stock value'},
   ];
   document.getElementById('kpis').innerHTML=cards.map(c=>`
@@ -396,6 +395,15 @@ function drawDead(){
 }
 
 /* ---------- GDRN (goods disposal) table ---------- */
+// GDRN records filtered by the active plant (werks) and sales-org (vkorg) filters.
+function gdrnFiltered(){
+  const all=(window.__AGING__&&window.__AGING__.gdrn&&window.__AGING__.gdrn.records)||[];
+  return all.filter(r=>{
+    if(state.werks.size && !state.werks.has(r.werks)) return false;
+    if(state.vkorg && r.vkorg!==state.vkorg) return false;
+    return true;
+  });
+}
 const GDRN_COLS=[
   {k:'date',t:'Date',cls:''},
   {k:'werks',t:'Plant',cls:''},
@@ -409,7 +417,7 @@ const GDRN_COLS=[
 ];
 let gdrnSort={key:'date',dir:-1};
 function renderGdrnTable(){
-  const recs=((window.__AGING__&&window.__AGING__.gdrn&&window.__AGING__.gdrn.records)||[]).map(r=>({...r}));
+  const recs=gdrnFiltered().map(r=>({...r}));
   for(const r of recs) r.matnr=String(r.matnr||'').replace(/^0+/,'')||'0';
   const sorted=[...recs].sort((x,y)=>{
     let a=x[gdrnSort.key],b=y[gdrnSort.key];
@@ -506,7 +514,6 @@ function buildMultiSelect(root,key,values,label){
 
 function initUI(){
   // single selects
-  const regions=[...new Set(DATA.map(r=>r.regio).filter(Boolean))].sort();
   const plants=[...new Set(DATA.map(r=>r.werks).filter(Boolean))].sort();
   const vkorgs=[...new Set(DATA.map(r=>r.vkorg).filter(Boolean))].sort();
   const extwgDesc=new Map();
@@ -547,13 +554,7 @@ function initUI(){
     csvFrom(data, head, cols, 'top_materials_by_stock_value.csv');
   };
 
-  // multi-selects (region, plant)
-  const regioRoot=document.querySelector('.ms[data-key="regio"]');
-  injectMSToggle(regioRoot,'Region');
-  regioRoot.querySelector('.ms-menu').innerHTML=
-    '<div class="ms-opt"><input type="checkbox" value="__ALL__" disabled hidden></div>'+
-    regions.map(v=>`<label class="ms-opt" data-label="${esc(v)}"><input type="checkbox" value="${esc(v)}">${esc(v)}</label>`).join('')+
-    `<div class="ms-actions"><button class="ms-all">All</button><button class="ms-clear">Clear</button></div>`;
+  // multi-select (plant)
   const plantRoot=document.querySelector('.ms[data-key="werks"]');
   injectMSToggle(plantRoot,'Plant');
   const werksDesc=new Map();
@@ -562,7 +563,6 @@ function initUI(){
     '<input class="ms-search" placeholder="search plant…">'+
     plants.map(v=>`<label class="ms-opt" data-label="${esc(v)}${werksDesc.get(v)?' '+esc(werksDesc.get(v)):''}"><input type="checkbox" value="${esc(v)}">${esc(v)}${werksDesc.get(v)?' – '+esc(werksDesc.get(v)):''}</label>`).join('')+
     `<div class="ms-actions"><button class="ms-all">All</button><button class="ms-clear">Clear</button></div>`;
-  buildMultiSelect(regioRoot,'regio',regions);
   buildMultiSelect(plantRoot,'werks',plants);
 
   // table head sort
@@ -582,13 +582,13 @@ function initUI(){
   };
   const exportGdrn=document.getElementById('export-gdrn-csv');
   if(exportGdrn) exportGdrn.onclick=()=>{
-    const recs=(window.__AGING__&&window.__AGING__.gdrn&&window.__AGING__.gdrn.records)||[];
+    const recs=gdrnFiltered();
     const head=['DATE','PLANT','MBLNR','MATERIAL','DESCRIPTION','SLOC','BATCH','QTY','UOM','VALUE','USER'];
     const cols=['date','werks','mblnr','matnr','maktx','lgort','charg','menge','meins','dmbtr','usnam'];
     csvFrom(recs, head, cols, 'goods_disposal_ytd.csv');
   };
   document.getElementById('reset').onclick=()=>{
-    state.regio.clear();state.werks.clear();state.vkorg='';state.extwg='';state.matkl='';state.bucket='';state.search='';state.page=1;
+    state.werks.clear();state.vkorg='';state.extwg='';state.matkl='';state.bucket='';state.search='';state.page=1;
     document.querySelectorAll('.ms').forEach(r=>{r.querySelectorAll('input').forEach(c=>c.checked=false);const c=r.querySelector('.cnt');if(c)c.textContent='All';r.classList.remove('open');});
     ['f-vkorg','f-extwg','f-matkl','f-bucket'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('f-search').value='';
