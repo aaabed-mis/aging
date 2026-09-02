@@ -81,12 +81,16 @@ function aggregate(rows){
 
 /* ---------- KPIs ---------- */
 function renderKPIs(a){
-  const b030=a.byBucket['0-30'];
   const expiredPct=a.totalVal?a.expiredVal/a.totalVal*100:0;
   const deadPct=a.totalVal?a.deadStockVal/a.totalVal*100:0;
+  // Near expiry = total across all in-scope future buckets (0-30 .. 91-120)
+  const nearB=['0-30','31-60','61-90','91-120'];
+  const nearVal=nearB.reduce((s,b)=>s+(a.byBucket[b]?.val||0),0);
+  const nearQty=nearB.reduce((s,b)=>s+(a.byBucket[b]?.qty||0),0);
+  const nearBatches=nearB.reduce((s,b)=>s+(a.byBucket[b]?.batches||0),0);
   const cards=[
     {cls:'k-expired',label:'Expired Value',value:fmtMoney(a.expiredVal),sub:fmtNum(expiredPct,1)+'% of stock · '+fmtInt(a.byBucket['Expired'].batches)+' batches'},
-    {cls:'k-near',label:'Expiring (0–30d)',value:fmtMoney(b030.val),sub:fmtNum(b030.qty,0)+' units · '+fmtInt(b030.batches)+' batches'},
+    {cls:'k-near',label:'NEAR EXPIRY',value:fmtMoney(nearVal),sub:fmtNum(nearQty,0)+' units · '+fmtInt(nearBatches)+' batches (0-120d)'},
     {cls:'',label:'Goods Disposal YTD',value:fmtMoney(window.__AGING__?.gdrn?.total_ytd||0),sub:'Item Count · '+fmtInt((window.__AGING__?.gdrn?.records||[]).length)},
     {cls:'k-active',label:'Slow Moving (no sales 6mo)',value:fmtMoney(a.deadStockVal),sub:fmtNum(deadPct,1)+'% of stock value'},
   ];
