@@ -10,7 +10,7 @@ const FONT = "'Segoe UI', Roboto, Arial, sans-serif";
 let DATA = [];
 let META = {};
 const state = {
-  werks: new Set(), vkorg: "", extwg: "", matkl: "", bucket: "", search: "",
+  werks: new Set(), vkorg: "", mfrnr: new Set(), extwg: "", matkl: "", bucket: "", search: "",
   sortKey: "value", sortDir: -1, page: 1, pageSize: 50
 };
 const charts = {};
@@ -26,6 +26,7 @@ function applyFilters(){
   return DATA.filter(r=>{
     if(state.werks.size && !state.werks.has(r.werks)) return false;
     if(state.vkorg && r.vkorg!==state.vkorg) return false;
+    if(state.mfrnr.size && !state.mfrnr.has(String(r.mfrnr))) return false;
     if(state.extwg && r.extwg!==state.extwg) return false;
     if(state.matkl && r.matkl!==state.matkl) return false;
     if(state.bucket && r.aging_bucket!==state.bucket) return false;
@@ -42,7 +43,7 @@ function aggregate(rows){
   let totalQty=0,totalVal=0,expiredQty=0,expiredVal=0,batches=rows.length;
   let deadStockVal=0, sl01ExpiredVal=0;
   const seenMat=new Map(); // matnr -> avg_monthly_active (distinct, avoids batch double-count)
-  const byBucket={}, byRegion={}, byPlant={}, byMgrp={}, byRegionBucket={}, byPlantBucket={}, byMgrpBucket={}, byMatnr={}, byMatnrBucket={};
+  const byBucket={}, byRegion={}, byPlant={}, byMgrp={}, byVendor={}, byRegionBucket={}, byPlantBucket={}, byMgrpBucket={}, byVendorBucket={}, byMatnr={}, byMatnrBucket={};
   BUCKETS.forEach(b=>byBucket[b]={qty:0,val:0,batches:0});
   for(const r of rows){
     const q=r.clabs||0, v=r.value||0;
@@ -61,6 +62,9 @@ function aggregate(rows){
     const mg=r.ewbez||r.extwg||'(none)'; byMgrp[mg]=(byMgrp[mg]||0)+v;
     if(!byMgrpBucket[mg]){byMgrpBucket[mg]={};BUCKETS.forEach(x=>byMgrpBucket[mg][x]=0);}
     if(byMgrpBucket[mg][b]!==undefined)byMgrpBucket[mg][b]+=v;
+    const vd=(r.mfrnr?(String(r.mfrnr).replace(/^0+/,'')||'0'):'(none)')+(r.name11?' – '+r.name11:''); byVendor[vd]=(byVendor[vd]||0)+v;
+    if(!byVendorBucket[vd]){byVendorBucket[vd]={};BUCKETS.forEach(x=>byVendorBucket[vd][x]=0);}
+    if(byVendorBucket[vd][b]!==undefined)byVendorBucket[vd][b]+=v;
     const mkey=r.maktx?r.matnr+' – '+r.maktx:r.matnr; byMatnr[mkey]=(byMatnr[mkey]||0)+v;
     if(!byMatnrBucket[mkey]){byMatnrBucket[mkey]={};BUCKETS.forEach(x=>byMatnrBucket[mkey][x]=0);}
     if(byMatnrBucket[mkey][b]!==undefined)byMatnrBucket[mkey][b]+=v;
@@ -75,7 +79,7 @@ function aggregate(rows){
   let totalAvgDaily=0;
   for(const [,am] of seenMat){ if(am) totalAvgDaily+=am/30; }
   const coverageDays=totalAvgDaily>0?totalQty/totalAvgDaily:null;
-  return {totalQty,totalVal,expiredQty,expiredVal,batches,deadStockVal,sl01ExpiredVal,coverageDays,byBucket,byRegion,byPlant,byMgrp,byRegionBucket,byPlantBucket,byMgrpBucket,byMatnr,byMatnrBucket};
+  return {totalQty,totalVal,expiredQty,expiredVal,batches,deadStockVal,sl01ExpiredVal,coverageDays,byBucket,byRegion,byPlant,byMgrp,byVendor,byRegionBucket,byPlantBucket,byMgrpBucket,byVendorBucket,byMatnr,byMatnrBucket};
 }
 
 /* ---------- KPIs ---------- */
@@ -134,7 +138,7 @@ function bucketTooltip(aggData, bucketKey, tipId){
   // hide when focus leaves the canvas/window so the tooltip never sticks.
   // idempotent: guard global listeners so repeated refresh() calls don't stack them.
   if(!bucketTooltip._globalBound){
-    const TIPS=()=>[document.getElementById('region-tip'),document.getElementById('plant-tip'),document.getElementById('mgrp-tip'),document.getElementById('mat-tip')];
+    const TIPS=()=>[document.getElementById('region-tip'),document.getElementById('plant-tip'),document.getElementById('mgrp-tip'),document.getElementById('vendor-tip'),document.getElementById('mat-tip')];
     window.addEventListener('blur', ()=>{ for(const t of TIPS()) if(t) t.style.opacity=0; });
     document.addEventListener('mouseleave', ()=>{ for(const t of TIPS()) if(t) t.style.opacity=0; });
     bucketTooltip._globalBound = true;
@@ -203,8 +207,21 @@ function renderMgrp(a){
       backgroundColor:entries.map((_,i)=>`hsl(${210-i*14} 70% 58%)`),borderRadius:6}]},
     options:{indexAxis:'y',maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{enabled:false,external:bucketTooltip(a,'byMgrpBucket','mgrp-tip')}},
-      scales:{x:{ticks:{callback:v=>fmtNum(v/1e6,1)+'M'}}}}});
-}
+      scales:{x:{ticks:{callback:v=>fmtNum(v/1e6,1)+'M'}}}}});}
+function renderVendor(a){
+  const entries=Object.entries(a.byVendor).sort((x,y)=>y[1]-x[1]);
+  const ctx=document.getElementById('chart-vendor');
+  if(charts.vendor)charts.vendor.destroy();
+  // grow the inner wrapper (not the canvas) so the wrap scrolls (300px visible)
+  // and Chart.js stays responsive => bitmap matches display => sharp text
+  const inner=ctx&&ctx.parentNode;
+  if(inner) inner.style.height=Math.max(300, entries.length*24)+'px';
+  charts.vendor=new Chart(ctx,{type:'bar',data:{labels:entries.map(e=>e[0]),
+    datasets:[{label:'Stock value',data:entries.map(e=>e[1]),
+      backgroundColor:entries.map((_,i)=>`hsl(${145-i*12} 65% 55%)`),borderRadius:6}]},
+    options:{indexAxis:'y',maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{enabled:false,external:bucketTooltip(a,'byVendorBucket','vendor-tip')}},
+      scales:{x:{ticks:{callback:v=>fmtNum(v/1e6,1)+'M'}}}}});}
 
 function renderTopMat(rows){
   // aggregate per MATNR from the filtered rows
@@ -456,7 +473,7 @@ function refresh(){
   const rows=applyFilters();
   const a=aggregate(rows);
   renderKPIs(a);
-  renderBucketChart(a);renderBucketTable(a);renderRegion(a);renderPlant(a);renderMgrp(a);renderTopMat(rows);
+  renderBucketChart(a);renderBucketTable(a);renderRegion(a);renderPlant(a);renderMgrp(a);renderVendor(a);renderTopMat(rows);
   renderTable(rows);
   renderDeadStock(rows);
   renderGdrnTable();
@@ -524,6 +541,9 @@ function initUI(){
   const matkls=[...new Set(DATA.map(r=>r.matkl).filter(Boolean))].sort();
   const buckets=BUCKETS.filter(b=>DATA.some(r=>r.aging_bucket===b));
   buildSelect('f-vkorg',vkorgs,'All sales orgs');
+  const vendorDesc=new Map();
+  DATA.forEach(r=>{ if(r.mfrnr && !vendorDesc.has(String(r.mfrnr)) && r.name11) vendorDesc.set(String(r.mfrnr),r.name11); });
+  const vendors=[...vendorDesc.keys()].sort();
   const extwgSel=document.getElementById('f-extwg');
   extwgSel.innerHTML='<option value="">All ext material groups</option>'+
     extwgs.map(v=>`<option value="${esc(v)}">${esc(v)}${extwgDesc.get(v)?' – '+esc(extwgDesc.get(v)):''}</option>`).join('');
@@ -565,6 +585,17 @@ function initUI(){
     `<div class="ms-actions"><button class="ms-all">All</button><button class="ms-clear">Clear</button></div>`;
   buildMultiSelect(plantRoot,'werks',plants);
 
+  // multi-select (vendor)
+  const vendorRoot=document.querySelector('.ms[data-key="mfrnr"]');
+  if(vendorRoot){
+    injectMSToggle(vendorRoot,'Vendor');
+    vendorRoot.querySelector('.ms-menu').innerHTML=
+      '<input class="ms-search" placeholder="search vendor…">'+
+      vendors.map(v=>`<label class="ms-opt" data-label="${esc(v.replace(/^0+/,'')||'0')} ${esc(vendorDesc.get(v)||'')}"><input type="checkbox" value="${esc(v)}">${esc(v.replace(/^0+/,'')||'0')}${vendorDesc.get(v)?' – '+esc(vendorDesc.get(v)):''}</label>`).join('')+
+      `<div class="ms-actions"><button class="ms-all">All</button><button class="ms-clear">Clear</button></div>`;
+    buildMultiSelect(vendorRoot,'mfrnr',vendors);
+  }
+
   // table head sort
   document.querySelector('#detail-table thead').addEventListener('click',e=>{
     const th=e.target.closest('th');if(!th)return;const k=th.dataset.k;
@@ -588,7 +619,7 @@ function initUI(){
     csvFrom(recs, head, cols, 'goods_disposal_ytd.csv');
   };
   document.getElementById('reset').onclick=()=>{
-    state.werks.clear();state.vkorg='';state.extwg='';state.matkl='';state.bucket='';state.search='';state.page=1;
+    state.werks.clear();state.vkorg='';state.mfrnr.clear();state.extwg='';state.matkl='';state.bucket='';state.search='';state.page=1;
     document.querySelectorAll('.ms').forEach(r=>{r.querySelectorAll('input').forEach(c=>c.checked=false);const c=r.querySelector('.cnt');if(c)c.textContent='All';r.classList.remove('open');});
     ['f-vkorg','f-extwg','f-matkl','f-bucket'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('f-search').value='';

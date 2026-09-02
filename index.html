@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Material Aging Dashboard</title>
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
-  <link rel="stylesheet" href="styles.css?v=20260902f" />
+  <link rel="stylesheet" href="styles.css?v=20260902g" />
 </head>
 <body>
   <header class="topbar">
@@ -29,6 +29,10 @@
     <div class="filter-group">
       <label>Plant</label>
       <div class="ms" data-key="werks" data-label="Plant" data-search="true"></div>
+    </div>
+    <div class="filter-group">
+      <label>Vendor</label>
+      <div class="ms" data-key="mfrnr" data-label="Vendor" data-search="true"></div>
     </div>
     <div class="filter-group">
       <label>Ext Material Group</label>
@@ -70,9 +74,13 @@
       <div class="card-head"><h2>Top 15 Plants by Stock Value</h2></div>
       <div class="chart-wrap"><canvas id="chart-plant"></canvas></div>
     </div>
-    <div class="card span-3">
+    <div class="card span-1" id="mgrp-card">
       <div class="card-head"><h2>Stock Value by Material Group</h2></div>
       <div class="chart-wrap tall"><canvas id="chart-mgrp"></canvas></div>
+    </div>
+    <div class="card span-2" id="vendor-card">
+      <div class="card-head"><h2>Vendor Insight</h2></div>
+      <div class="chart-wrap tall vendor-wrap"><div class="vendor-inner"><canvas id="chart-vendor"></canvas></div></div>
     </div>
     <div class="card span-3">
       <div class="card-head"><h2>Top Materials by Stock Value</h2>
@@ -154,7 +162,7 @@
   </section>
 
   <script src="assets/chart.umd.min.js"></script>
-  <script src="data/data.js?v=20260902f"></script>
-  <script src="app.js?v=20260902f"></script>
+  <script src="data/data.js?v=20260902g"></script>
+  <script src="app.js?v=20260902g"></script>
 </body>
 </html>

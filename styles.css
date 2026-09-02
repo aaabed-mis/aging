@@ -99,6 +99,8 @@ code{background:var(--panel-2);padding:1px 6px;border-radius:6px;font-size:12px;
 .hint{color:var(--muted);font-size:12px}
 .chart-wrap{position:relative;height:260px}
 .chart-wrap.tall{height:300px}
+.chart-wrap.vendor-wrap{overflow-y:auto;height:300px}
+.vendor-inner{position:relative}
 
 /* Table */
 .table-card{margin:6px 26px 0}
@@ -148,6 +150,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   .grid{grid-template-columns:repeat(2,1fr)}
   .card.span-2{grid-column:span 2}
   .card.span-3{grid-column:span 2}
+  /* swap: vendor first (full width), material group below */
+  #vendor-card{order:1;grid-column:span 2}
+  #mgrp-card{order:2;grid-column:span 2}
 }
 @media (max-width:820px){
   .kpis{grid-template-columns:repeat(2,1fr)}
