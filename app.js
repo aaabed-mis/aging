@@ -316,13 +316,23 @@ const COLS=[
   {k:'werks',t:'Plant',cls:''},
   {k:'lgort',t:'SLoc',cls:''},
   {k:'charg',t:'Batch',cls:''},
-  {k:'extwg',t:'Mat.Grp',cls:''},
-  {k:'ewbez',t:'Mat.Grp Description',cls:''},
+  {k:'ewbez',t:'Ext. Mat. Grp',cls:''},
+  {k:'name11',t:'Vendor',cls:''},
   {k:'clabs',t:'Qty',cls:'num'},
+  {k:'umrez',t:'Factor',cls:'num'},
+  {k:'ntgew',t:'Net Wt (KG)',cls:'num'},
+  {k:'weight_t',t:'Weight (T)',cls:'num'},
   {k:'ma_price',t:'Price',cls:'num'},
   {k:'value',t:'Value',cls:'num'},
   {k:'aging_bucket',t:'Bucket',cls:''},
 ];
+// Ext. Mat. Grp label by material-number series (first digit of zero-stripped matnr)
+function extGrpLabel(r){
+  const m=String(r.matnr||'').replace(/^0+/,'')||'0';
+  if(m[0]==='2') return 'Finished Goods';
+  if(m[0]==='3') return 'Raw Materials';
+  return r.ewbez||r.extwg||'';
+}
 function renderTable(rows){
   const cols=COLS;
   document.querySelector('#detail-table thead').innerHTML=
@@ -336,12 +346,21 @@ function renderTable(rows){
   const total=sorted.length, pages=Math.max(1,Math.ceil(total/state.pageSize));
   if(state.page>pages)state.page=pages;
   const start=(state.page-1)*state.pageSize, pageRows=sorted.slice(start,start+state.pageSize);
-  document.querySelector('#detail-table tbody').innerHTML=pageRows.map(r=>'<tr>'+
+  document.querySelector('#detail-table tbody').innerHTML=pageRows.map(r=>{
+    // weight in tons = batch qty × net weight per unit (KG) / 1000
+    const nt=(r.ntgew==null?null:r.ntgew);
+    r.weight_t = (nt!=null && r.clabs!=null) ? r.clabs*nt/1000 : null;
+    return '<tr>'+
     cols.map(c=>{
       if(c.k==='aging_bucket') return `<td><span class="bucket-tag ${BUCKET_CLASS[r.aging_bucket]||''}">${esc(r.aging_bucket)}</span></td>`;
+      if(c.k==='ewbez') return `<td>${esc(extGrpLabel(r))}</td>`;
+      if(c.k==='weight_t') return `<td class="num">${r.weight_t==null?'—':fmtNum(r.weight_t,3)}</td>`;
+      if(c.k==='ntgew') return `<td class="num">${r.ntgew==null?'—':fmtNum(r.ntgew,3)}</td>`;
+      if(c.k==='umrez') return `<td class="num">${r.umrez==null?'—':fmtNum(r.umrez,3)}</td>`;
       if(c.cls==='num'){const v=r[c.k];return `<td class="num">${c.k==='value'?fmtMoney(v):fmtNum(v,c.k==='clabs'?0:2)}</td>`;}
       return `<td>${esc(r[c.k])}</td>`;
-    }).join('')+'</tr>').join('');
+    }).join('')+'</tr>';
+  }).join('');
   document.getElementById('table-count').textContent=fmtInt(total)+' batches';
   document.getElementById('page-info').textContent=`Page ${state.page} / ${pages}`;
   document.getElementById('prev').disabled=state.page<=1;
@@ -360,9 +379,16 @@ function csvFrom(rows, head, cols, filename){
 }
 
 function exportCSV(rows){
-  const head=['MATNR','MAKTX','WERKS','SLOC','NAME1','REGIO','CHARG','EXTWG','EWBEZ','CLABS','MA_PRICE','VALUE','AGING_BUCKET'];
-  const cols=['matnr','maktx','werks','lgort','name1','regio','charg','extwg','ewbez','clabs','ma_price','value','aging_bucket'];
-  csvFrom(rows, head, cols, 'material_aging_filtered.csv');
+  const head=['MATNR','MAKTX','WERKS','SLOC','NAME1','REGIO','CHARG','EXT_MAT_GRP','VENDOR','CLABS','UMREZ','NTGEW','WEIGHT_T','MA_PRICE','VALUE','AGING_BUCKET'];
+  const cols=['matnr','maktx','werks','lgort','name1','regio','charg','extgrp','name11','clabs','umrez','ntgew','weight_t','ma_price','value','aging_bucket'];
+  const data=rows.map(r=>{
+    const o={...r};
+    const nt=(r.ntgew==null?null:r.ntgew);
+    o.weight_t=(nt!=null&&r.clabs!=null)?r.clabs*nt/1000:null;
+    o.extgrp=extGrpLabel(r);
+    return o;
+  });
+  csvFrom(data, head, cols, 'material_aging_filtered.csv');
 }
 
 /* ---------- dead stock table ---------- */
