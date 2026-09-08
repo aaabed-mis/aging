@@ -107,7 +107,19 @@ try:
                 last_sales[str(mat)] = iso
 except Exception as e:
     print("WARN: last_sales join skipped:", e)
-    last_sales = {}
+
+# Plant dimension: sales org (BUKRS) + plant classification (NAME2) per plant (WERKS).
+PLANTS = r"C:\Users\c.crizaldo\OneDrive - Ahmad A. Abed Trading Co. Ltd\Documents\duckdb\dim_plants.duckdb"
+plant_dim = {}
+try:
+    with duckdb.connect(PLANTS, read_only=True) as con_p:
+        for w, b, n2 in con_p.execute(
+            "SELECT werks, bukrs, name2 FROM sap_prd.dim_plants"
+        ).fetchall():
+            if w:
+                plant_dim[str(w).strip()] = {"bukrs": b, "name2": n2}
+except Exception as e:
+    print("WARN: dim_plants join skipped:", e)
 
 # Forecast per material, from fact_forecast (sum of zbvalue / zbqty across months/plants).
 FC = r"C:\Users\c.crizaldo\OneDrive - Ahmad A. Abed Trading Co. Ltd\Documents\duckdb\fact_forecast.duckdb"
@@ -164,6 +176,9 @@ for r in rows:
     rec["aging_date"] = aging_date
     rec["aging_bucket"] = aging_bucket
     rec["lgort"] = rec.get(C_LGORT) if C_LGORT else None  # carried when present in source, else null
+    pdim = plant_dim.get(str(rec.get(C_WERKS) or '').strip()) or {}
+    rec["bukrs"] = pdim.get("bukrs")     # sales org from dim_plants
+    rec["name2"] = pdim.get("name2")     # plant classification from dim_plants
     s = sales.get(rec.get(C_MATNR))
     rec["avg_monthly_active"] = round(s["avg_monthly_active"], 4) if (s and s["avg_monthly_active"] is not None) else None
     rec["total_qty_6mo"] = round(s["total_qty_6mo"], 4) if (s and s["total_qty_6mo"] is not None) else None

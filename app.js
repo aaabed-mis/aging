@@ -314,6 +314,8 @@ const COLS=[
   {k:'matnr',t:'Material',cls:''},
   {k:'maktx',t:'Description',cls:''},
   {k:'werks',t:'Plant',cls:''},
+  {k:'bukrs',t:'Sales Org',cls:''},
+  {k:'name2',t:'Plant Class',cls:''},
   {k:'lgort',t:'SLoc',cls:''},
   {k:'charg',t:'Batch',cls:''},
   {k:'ewbez',t:'Ext. Mat. Grp',cls:''},
@@ -379,8 +381,8 @@ function csvFrom(rows, head, cols, filename){
 }
 
 function exportCSV(rows){
-  const head=['MATNR','MAKTX','WERKS','SLOC','NAME1','REGIO','CHARG','EXT_MAT_GRP','VENDOR','CLABS','UMREZ','NTGEW','WEIGHT_T','MA_PRICE','VALUE','AGING_BUCKET'];
-  const cols=['matnr','maktx','werks','lgort','name1','regio','charg','extgrp','name11','clabs','umrez','ntgew','weight_t','ma_price','value','aging_bucket'];
+  const head=['MATNR','MAKTX','WERKS','SALES_ORG','PLANT_CLASS','SLOC','NAME1','REGIO','CHARG','EXT_MAT_GRP','VENDOR','CLABS','UMREZ','NTGEW','WEIGHT_T','MA_PRICE','VALUE','AGING_BUCKET'];
+  const cols=['matnr','maktx','werks','bukrs','name2','lgort','name1','regio','charg','extgrp','name11','clabs','umrez','ntgew','weight_t','ma_price','value','aging_bucket'];
   const data=rows.map(r=>{
     const o={...r};
     const nt=(r.ntgew==null?null:r.ntgew);
