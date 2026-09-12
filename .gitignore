@@ -8,3 +8,8 @@ __pycache__/
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# Local agent tooling (npx skills install)
+.agents/
+.claude/
+skills-lock.json

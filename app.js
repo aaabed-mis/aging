@@ -322,11 +322,11 @@ const COLS=[
   {k:'name11',t:'Vendor',cls:''},
   {k:'clabs',t:'Qty',cls:'num'},
   {k:'umrez',t:'Factor',cls:'num'},
-  {k:'ntgew',t:'Net Wt (KG)',cls:'num'},
-  {k:'weight_t',t:'Weight (T)',cls:'num'},
-  {k:'ma_price',t:'Price',cls:'num'},
-  {k:'value',t:'Value',cls:'num'},
-  {k:'aging_bucket',t:'Bucket',cls:''},
+  {k:'ntgew',t:'Net Weight (KG)',cls:'num'},
+  {k:'weight_t',t:'Tonnage',cls:'num'},
+  {k:'ma_price',t:'MAVG Cost',cls:'num'},
+  {k:'value',t:'Stock Value',cls:'num'},
+  {k:'aging_bucket',t:'Aging Bucket',cls:''},
 ];
 // Ext. Mat. Grp label by material-number series (first digit of zero-stripped matnr)
 function extGrpLabel(r){
@@ -381,12 +381,13 @@ function csvFrom(rows, head, cols, filename){
 }
 
 function exportCSV(rows){
-  const head=['MATNR','MAKTX','WERKS','SALES_ORG','PLANT_CLASS','SLOC','NAME1','REGIO','CHARG','EXT_MAT_GRP','VENDOR','CLABS','UMREZ','NTGEW','WEIGHT_T','MA_PRICE','VALUE','AGING_BUCKET'];
-  const cols=['matnr','maktx','werks','bukrs','name2','lgort','name1','regio','charg','extgrp','name11','clabs','umrez','ntgew','weight_t','ma_price','value','aging_bucket'];
+  const head=['MATERIAL','DESCRIPTION','PLANT','SALES_ORG','PLANT_CLASS','SLOC','PLANT_NAME','REGION','BATCH','EXT_MAT_GRP','VENDOR','QTY','FACTOR','NET_WEIGHT','TONNAGE','HUOM','MAVG_COST','STOCK_VALUE','AGING_BUCKET'];
+  const cols=['matnr','maktx','werks','bukrs','name2','lgort','name1','regio','charg','extgrp','name11','clabs','umrez','ntgew','weight_t','huom','ma_price','value','aging_bucket'];
   const data=rows.map(r=>{
     const o={...r};
     const nt=(r.ntgew==null?null:r.ntgew);
     o.weight_t=(nt!=null&&r.clabs!=null)?r.clabs*nt/1000:null;
+    o.huom=(r.clabs!=null&&r.umrez!=null&&r.umrez!==0)?r.clabs/r.umrez:null;  // CLABS / UMREZ (base unit of measure)
     o.extgrp=extGrpLabel(r);
     return o;
   });
